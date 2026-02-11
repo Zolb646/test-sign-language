@@ -19,7 +19,7 @@ export default function DetectedSign({ classification }: DetectedSignProps) {
     );
   }
 
-  const { letter, confidence, fingerState, phrase, category, motionDetected, alternatives } = classification;
+  const { letter, confidence, fingerState, phrase, category, motionDetected, classifierSource, alternatives } = classification;
   const isPhrase = !!phrase;
   const fingers = [
     fingerState.thumb,
@@ -66,6 +66,17 @@ export default function DetectedSign({ classification }: DetectedSignProps) {
           {motionDetected && (
             <span className="text-[10px] px-1.5 py-0.5 bg-cyan-600/30 text-cyan-400 rounded">
               Motion
+            </span>
+          )}
+          {classifierSource && (
+            <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+              classifierSource === "hybrid"
+                ? "bg-emerald-600/30 text-emerald-400"
+                : classifierSource === "ml"
+                  ? "bg-blue-600/30 text-blue-400"
+                  : "bg-gray-600/30 text-gray-400"
+            }`}>
+              {classifierSource === "hybrid" ? "Hybrid" : classifierSource === "ml" ? "ML" : "Rule"}
             </span>
           )}
         </div>

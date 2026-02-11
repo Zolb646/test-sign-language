@@ -197,6 +197,122 @@ export function classifyASLSign(
     }
   }
 
+  // ---- THANK YOU: Flat hand (all fingers extended, together) near chin level,
+  //      fingers pointing up with hand relatively high in frame (y < 0.35) ----
+  if (extended >= 4 && !fingersPointDown && !fingersPointSideways) {
+    const indexMiddleDist = distance2D(indexTip, middleTip);
+    const middleRingDist = distance2D(middleTip, ringTip);
+    const fingersTight =
+      indexMiddleDist < palmSize * 0.12 && middleRingDist < palmSize * 0.12;
+    // Hand is high in frame (near face/chin level)
+    if (fingersTight && wrist.y < 0.35) {
+      return {
+        letter: "THANK_YOU",
+        confidence: 0.7,
+        fingerState,
+        phrase: "THANK YOU",
+      };
+    }
+  }
+
+  // ---- YES: Closed fist (like S/A) nodding — detected as fist with wrist high ----
+  // Static approximation: fist shape with hand relatively high in frame
+  if (
+    extended === 0 &&
+    wrist.y < 0.4
+  ) {
+    const thumbMCP = landmarks[HandLandmark.THUMB_MCP];
+    const thumbYDiff = thumbTip.y - thumbMCP.y;
+    const thumbXDiff = Math.abs(thumbTip.x - thumbMCP.x);
+    const thumbIsVertical = Math.abs(thumbYDiff) > thumbXDiff * 1.2;
+    // Fist is somewhat vertical and compact
+    if (!thumbIsVertical) {
+      return {
+        letter: "YES",
+        confidence: 0.6,
+        fingerState,
+        phrase: "YES",
+      };
+    }
+  }
+
+  // ---- NO: Index + Middle extended, close together, snapping motion ----
+  // Static: index + middle extended and very close (like U but horizontal/tilted)
+  if (
+    matchesPattern(fingerState, {
+      thumb: true,
+      index: true,
+      middle: true,
+      ring: false,
+      pinky: false,
+    }) &&
+    fingersPointSideways
+  ) {
+    const indexMiddleDist = distance2D(indexTip, middleTip);
+    if (indexMiddleDist < palmSize * 0.1) {
+      return {
+        letter: "NO",
+        confidence: 0.6,
+        fingerState,
+        phrase: "NO",
+      };
+    }
+  }
+
+  // ---- PLEASE: Open flat hand on chest area (low in frame, palm facing body) ----
+  // Static: all extended, fingers together, hand in lower portion of frame
+  if (extended >= 4 && wrist.y > 0.55) {
+    const indexMiddleDist = distance2D(indexTip, middleTip);
+    const middleRingDist = distance2D(middleTip, ringTip);
+    const fingersTight =
+      indexMiddleDist < palmSize * 0.12 && middleRingDist < palmSize * 0.12;
+    if (fingersTight && !fingersPointDown) {
+      return {
+        letter: "PLEASE",
+        confidence: 0.6,
+        fingerState,
+        phrase: "PLEASE",
+      };
+    }
+  }
+
+  // ---- SORRY: Closed fist (A shape) with circular motion on chest ----
+  // Static: fist with thumb out (A shape), hand in lower portion of frame
+  if (
+    matchesPattern(fingerState, {
+      thumb: true,
+      index: false,
+      middle: false,
+      ring: false,
+      pinky: false,
+    }) &&
+    wrist.y > 0.5
+  ) {
+    const thumbMCP = landmarks[HandLandmark.THUMB_MCP];
+    const thumbYDiff = thumbTip.y - thumbMCP.y;
+    const thumbXDiff = Math.abs(thumbTip.x - thumbMCP.x);
+    const thumbIsVertical = Math.abs(thumbYDiff) > thumbXDiff * 1.5;
+    if (!thumbIsVertical) {
+      return {
+        letter: "SORRY",
+        confidence: 0.55,
+        fingerState,
+        phrase: "SORRY",
+      };
+    }
+  }
+
+  // ---- DONE: Both hands open, palms facing body, flick outward ----
+  // Static single-hand: all 5 extended, palm facing inward (z-depth check), hand low
+  if (extended === 5 && wrist.y > 0.5 && fingersPointDown) {
+    return {
+      letter: "DONE",
+      confidence: 0.55,
+      fingerState,
+      phrase: "DONE",
+    };
+  }
+
   // ===================================================================
   //  NUMBER CLASSIFICATION  (only active in "numbers" or "all" mode)
   // ===================================================================

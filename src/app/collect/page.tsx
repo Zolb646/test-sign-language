@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useCamera } from "@/hooks/useCamera";
 import { useHandLandmarker } from "@/hooks/useHandLandmarker";
 import { useAnimationFrame } from "@/hooks/useAnimationFrame";
@@ -25,6 +25,7 @@ export default function CollectPage() {
   const [framesCollected, setFramesCollected] = useState(0);
   const [samples, setSamples] = useState<CollectedSample[]>([]);
   const [status, setStatus] = useState("");
+  const [sampleCount, setSampleCount] = useState(0);
 
   const recordingRef = useRef(false);
   const framesRef = useRef(0);
@@ -60,6 +61,7 @@ export default function CollectPage() {
         recordingRef.current = false;
         setIsRecording(false);
         setSamples([...samplesRef.current]);
+        setSampleCount(samplesRef.current.length);
         setStatus(
           `Captured ${FRAMES_PER_SIGN} frames for "${CLASS_LABELS[currentLabelIdx]}"`,
         );
@@ -116,10 +118,13 @@ export default function CollectPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [isRecording, startRecording, nextSign, prevSign]);
 
-  const sampleCounts = new Map<string, number>();
-  for (const s of samplesRef.current) {
-    sampleCounts.set(s.label, (sampleCounts.get(s.label) || 0) + 1);
-  }
+  const sampleCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const s of samples) {
+      counts.set(s.label, (counts.get(s.label) || 0) + 1);
+    }
+    return counts;
+  }, [samples]);
 
   return (
     <main className="flex flex-col items-center gap-6 px-4 py-12 max-w-3xl mx-auto">
@@ -220,11 +225,11 @@ export default function CollectPage() {
       <div className="w-full">
         <div className="flex justify-between items-center mb-2">
           <span className="text-sm text-gray-400">
-            Total samples: {samplesRef.current.length}
+            Total samples: {sampleCount}
           </span>
           <button
             onClick={exportData}
-            disabled={samplesRef.current.length === 0}
+            disabled={sampleCount === 0}
             className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-700 text-white text-sm rounded-lg transition-colors"
           >
             Export JSON
