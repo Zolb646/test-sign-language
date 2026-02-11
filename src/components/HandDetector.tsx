@@ -9,6 +9,7 @@ import { useMotionTracker } from "@/hooks/useMotionTracker";
 import { useSentenceBuilder } from "@/hooks/useSentenceBuilder";
 import { classifyHybrid } from "@/lib/hybridClassifier";
 import { loadMLModel } from "@/lib/mlClassifier";
+import { loadFingerposeClassifier } from "@/lib/fingerposeClassifier";
 import { DetectionMode, Landmark, SignClassification } from "@/types/hand";
 import CameraFeed from "./CameraFeed";
 import DetectedSign from "./DetectedSign";
@@ -29,6 +30,7 @@ export default function HandDetector() {
     error: cameraError,
     startCamera,
     stopCamera,
+    retryCamera,
   } = useCamera();
   const {
     isLoading,
@@ -45,12 +47,42 @@ export default function HandDetector() {
   const [primaryClassification, setPrimaryClassification] =
     useState<SignClassification | null>(null);
   const [mode, setMode] = useState<DetectionMode>("all");
+  const [fps, setFps] = useState(0);
   const lastTimestampRef = useRef<number>(0);
+  const frameCountRef = useRef(0);
+  const fpsTimerRef = useRef(0);
 
-  // Attempt to load ML classifier model (fails silently, app uses rule-based fallback)
+  // Load classifier models (fail silently, app uses rule-based fallback)
   useEffect(() => {
     loadMLModel();
+    loadFingerposeClassifier();
   }, []);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isStreaming) return;
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      switch (e.key) {
+        case " ":
+          e.preventDefault();
+          addSpace();
+          break;
+        case "Backspace":
+          e.preventDefault();
+          backspace();
+          break;
+        case "Escape":
+          e.preventDefault();
+          clear();
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isStreaming, addSpace, backspace, clear]);
 
   const onFrame = useCallback(
     (timestamp: number) => {
@@ -58,6 +90,14 @@ export default function HandDetector() {
 
       if (timestamp <= lastTimestampRef.current) return;
       lastTimestampRef.current = timestamp;
+
+      // FPS counter
+      frameCountRef.current++;
+      if (timestamp - fpsTimerRef.current >= 1000) {
+        setFps(frameCountRef.current);
+        frameCountRef.current = 0;
+        fpsTimerRef.current = timestamp;
+      }
 
       const result = detectHands(videoRef.current, timestamp);
 
@@ -129,12 +169,23 @@ export default function HandDetector() {
         {isReady && !isStreaming && (
           <span className="text-green-400 text-sm">Model ready</span>
         )}
+
+        {isStreaming && fps > 0 && (
+          <span className="text-gray-500 text-xs font-mono">
+            {fps} FPS
+          </span>
+        )}
       </div>
 
-      {/* Error display */}
+      {/* Error display with retry button */}
       {error && (
-        <div className="px-4 py-3 bg-red-900/50 border border-red-700 rounded-xl text-red-300 text-sm max-w-lg text-center">
-          {error}
+        <div className="flex flex-col items-center gap-2 px-4 py-3 bg-red-900/50 border border-red-700 rounded-xl text-red-300 text-sm max-w-lg text-center">
+          <p>{error}</p>
+          <button
+            onClick={retryCamera}
+            className="px-4 py-1.5 bg-red-700 hover:bg-red-600 text-white text-xs font-medium rounded-lg transition-colors">
+            Retry Camera
+          </button>
         </div>
       )}
 
@@ -179,14 +230,23 @@ export default function HandDetector() {
       />
 
       {/* Instructions */}
-      <div className="text-center text-sm text-gray-500 max-w-lg">
+      <div className="text-center text-sm text-gray-500 max-w-lg space-y-2">
         <p>
-          Show ASL hand signs to the camera. Letters, numbers, and phrases
-          supported. Use the mode toggle above to switch.
+          Show ASL hand signs to the camera. Letters (A-Z), numbers (1-10), and
+          phrases supported. Use the mode toggle above to filter detection.
         </p>
-        <p className="mt-1 text-gray-600">
-          Hold a sign steady for ~1 second to add it to the sentence. Supports 2
-          hands.
+        <p className="text-gray-600">
+          Hold a sign steady for ~1 second to add it to the sentence. Supports
+          up to 2 hands simultaneously.
+        </p>
+        <div className="flex justify-center gap-4 text-xs text-gray-600">
+          <span><kbd className="px-1.5 py-0.5 bg-gray-800 rounded text-gray-400">Space</kbd> Add space</span>
+          <span><kbd className="px-1.5 py-0.5 bg-gray-800 rounded text-gray-400">Backspace</kbd> Delete</span>
+          <span><kbd className="px-1.5 py-0.5 bg-gray-800 rounded text-gray-400">Esc</kbd> Clear all</span>
+        </div>
+        <p className="text-gray-700 text-xs">
+          Powered by MediaPipe Hand Landmarker + fingerpose + rule-based
+          classification. All processing happens locally in your browser.
         </p>
       </div>
     </div>

@@ -8,6 +8,7 @@ interface UseCameraReturn {
   error: string | null;
   startCamera: () => Promise<void>;
   stopCamera: () => void;
+  retryCamera: () => Promise<void>;
 }
 
 export function useCamera(): UseCameraReturn {
@@ -49,14 +50,21 @@ export function useCamera(): UseCameraReturn {
     } catch (err) {
       const message =
         err instanceof DOMException && err.name === "NotAllowedError"
-          ? "Camera permission denied. Please allow camera access."
+          ? "Camera permission denied. Please allow camera access in your browser settings and try again."
           : err instanceof DOMException && err.name === "NotFoundError"
-            ? "No camera found. Please connect a camera."
-            : "Failed to access camera.";
+            ? "No camera found. Please connect a camera and try again."
+            : err instanceof DOMException && err.name === "NotReadableError"
+              ? "Camera is in use by another application. Please close other apps using the camera."
+              : "Failed to access camera. Please check your browser permissions.";
       setError(message);
       setIsStreaming(false);
     }
   }, []);
+
+  const retryCamera = useCallback(async () => {
+    stopCamera();
+    await startCamera();
+  }, [stopCamera, startCamera]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -67,5 +75,5 @@ export function useCamera(): UseCameraReturn {
     };
   }, []);
 
-  return { videoRef, isStreaming, error, startCamera, stopCamera };
+  return { videoRef, isStreaming, error, startCamera, stopCamera, retryCamera };
 }

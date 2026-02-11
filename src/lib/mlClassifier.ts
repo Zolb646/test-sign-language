@@ -39,6 +39,12 @@ export const CLASS_LABELS = [
   "OK",
   "STOP",
   "HI",
+  "THANK_YOU",
+  "YES",
+  "NO",
+  "PLEASE",
+  "SORRY",
+  "DONE",
 ] as const;
 
 const PHRASE_MAP: Record<string, string> = {
@@ -48,6 +54,12 @@ const PHRASE_MAP: Record<string, string> = {
   OK: "OK",
   STOP: "STOP",
   HI: "HELLO",
+  THANK_YOU: "THANK YOU",
+  YES: "YES",
+  NO: "NO",
+  PLEASE: "PLEASE",
+  SORRY: "SORRY",
+  DONE: "DONE",
 };
 
 let tf: typeof import("@tensorflow/tfjs") | null = null;
